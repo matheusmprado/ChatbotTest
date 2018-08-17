@@ -1,7 +1,7 @@
 import os, sys
 from flask import Flask, request
 from pymessenger import Bot
-from ipynb.fs.full.utils import wit_response
+from utils import wit_response
 
 VERIFY_TOKEN = "botchat"
 
