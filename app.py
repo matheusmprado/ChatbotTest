@@ -1,40 +1,17 @@
-#Python libraries that we need to import for our bot
-import random
+import os, sys
 from flask import Flask, request
-from pymessenger.bot import Bot
-import os 
+from pymessenger import Bot
+from ipynb.fs.full.utils import wit_response
+
+VERIFY_TOKEN = "botchat"
+
 app = Flask(__name__)
-ACCESS_TOKEN = 'EAADSN1kplawBAPZBGs7KSc2WbH6vnmKo7xeEA7DZBs1waIGZCLST0uf6ZBE6rj3EHwUvaRlFET3Og0iJ6Yfy9PFAFItLDbIThFSGBBQqMW7XfMqqKSeVUCOeixJCWQ0SHSEaai3msyz4EtBQOa5NaNiudcqxmw9jrZADl1KXBDbM9dqCR1W88'   #ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
-VERIFY_TOKEN = 'VERIFY_TOKEN'   #VERIFY_TOKEN = os.environ['VERIFY_TOKEN']
-bot = Bot (ACCESS_TOKEN)
 
-#We will receive messages that Facebook sends our bot at this endpoint 
-@app.route("/", methods=['GET', 'POST'])
-def receive_message():
-    if request.method == 'GET':
-        """Before allowing people to message your bot, Facebook has implemented a verify token
-        that confirms all requests that your bot receives came from Facebook.""" 
-        token_sent = request.args.get("hub.verify_token")
-        return verify_token(token_sent)
-    #if the request was not get, it must be POST and we can just proceed with sending a message back to user
-    else:
-        # get whatever message a user sent the bot
-       output = request.get_json()
-       for event in output['entry']:
-          messaging = event['messaging']
-          for message in messaging:
-            if message.get('message'):
-                #Facebook Messenger ID for user so we know where to send response back to
-                recipient_id = message['sender']['id']
-                if message['message'].get('text'):
-                    response_sent_text = get_message()
-                    send_message(recipient_id, response_sent_text)
-                #if user sends us a GIF, photo,video, or any other non-text item
-                if message['message'].get('attachments'):
-                    response_sent_nontext = get_message()
-                    send_message(recipient_id, response_sent_nontext)
-    return "Message Processed"
+PAGE_ACCESS_TOKEN = "EAAEgZC2rkEq0BAItrPL2v4pN5PIoXUZBDgLSqsCr2KLsYV4vxb5b18kv3f8sY36dFTnmbWd1doUvkynUqMhxP7aUHtmbuTHlx1viNqwNXIaHbW0MD2rzXJsr78ZBg4xNHggiXrhZCvO3SVKvAZADSCZC3St4eEnn9u2VkM4NZCNogZDZD"
 
+bot = Bot(PAGE_ACCESS_TOKEN)
+
+@app.route("/", methods=["GET"])
 
 def verify_token():
     if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.challenge"):
@@ -44,17 +21,44 @@ def verify_token():
     return "Hello World", 200
 
 
-#chooses a random message to send to the user
-def get_message():
-    sample_responses = ["Ola meu bom", "Você por aqui", "QUe bom te receber", "Fico feliz em te ver por aqui :)"]
-    # return selected item to the user
-    return random.choice(sample_responses)
+@app.route("/", methods=["POST"])
 
-#uses PyMessenger to send response to user
-def send_message(recipient_id, response):
-    #sends user the text message provided via input response parameter
-    bot.send_text_message(recipient_id, response)
-    return "success"
+def webhook():
+    data = request.get_json()
+    log(data)
+    
+    if data["object"] == "page":
+        for entry in data["entry"]:
+            for messaging_event in entry["messaging"]:
+                
+                #ID
+                sender_id = messaging_event["sender"]["id"]
+                recipient_id = messaging_event["recipient"]["id"]
+                
+                if messaging_event.get("message"):
+                    #extract message
+                    if "text" in messaging_event["message"]:
+                        messaging_text = messaging_event["message"]["text"]
+                    else:
+                        messaging_text = "no text"
+                
+                    #echo
+                    response = None
+                    entity, value = wit_response(messaging_text)
+                    
+                    if entity == "quadros":
+                        response = "Nossos modelos são esses:"
+                        
+                    if response == None:
+                        response = "Desculpe, não entendi :/"
+                    bot.send_text_message(sender_id, response)
+    
+    return "ok", 200
 
+def log(message):
+    print (message)
+    sys.stdout.flush()
+    
+    
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=False, port=80)
